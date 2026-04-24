@@ -32,3 +32,6 @@ node_modules
 # VitePress
 **/.vitepress/dist
 **/.vitepress/cache
+
+# Kiluth custom app — lives as its own git repo inside this directory
+kiluth_portal/

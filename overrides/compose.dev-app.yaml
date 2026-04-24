@@ -1,0 +1,83 @@
+services:
+  backend:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  configurator:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  queue-short:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  queue-long:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  scheduler:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  websocket:
+    environment:
+      PYTHONPATH: /home/frappe/frappe-bench/apps/kiluth_portal
+    volumes:
+      - type: volume
+        source: sites
+        target: /home/frappe/frappe-bench/sites
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+
+  # Frontend nginx serves static assets from /home/frappe/frappe-bench/sites/assets/<app>/.
+  # In dev mode, bench symlinks that dir to each app's public/ folder — but the
+  # frontend image has sites/assets/ as its own volume layer (separate from the
+  # shared sites volume), so symlinks written by the backend aren't visible here.
+  # Fix: bind-mount our app's public/ directly into the expected location so
+  # nginx can serve /assets/kiluth_portal/... without involving the symlink.
+  frontend:
+    volumes:
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal
+        target: /home/frappe/frappe-bench/apps/kiluth_portal
+        read_only: true
+      - type: bind
+        source: /Users/poompengcharoen/Developer/Kiluth/frappe_docker/kiluth_portal/kiluth_portal/public
+        target: /home/frappe/frappe-bench/sites/assets/kiluth_portal
+        read_only: true
