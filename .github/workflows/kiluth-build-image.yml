@@ -1,0 +1,88 @@
+name: Kiluth / Build & push image
+
+# Builds the Kiluth ERPNext image (Frappe + ERPNext + HRMS + kiluth_portal)
+# and pushes to ghcr.io/Kiluth/erpnext. Coolify pulls this image to deploy.
+#
+# The image is built from frappe_docker's images/layered/Containerfile —
+# upstream's standard "install N extra apps on top of frappe/build" recipe.
+# We pass our apps.json (which lists ERPNext, HRMS, kiluth_portal) as a
+# Docker BuildKit secret so it's not baked into image layers.
+#
+# Triggers:
+#  - push to main when apps.json, the Containerfile, or this workflow change
+#  - manual dispatch (re-build on demand without commits)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps.json"
+      - "images/**"
+      - ".github/workflows/kiluth-build-image.yml"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Override tag (default: ERPNEXT_VERSION from .env)"
+        required: false
+        type: string
+
+# Default permissions are read-only; this job needs write to push to GHCR.
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build & push to ghcr.io
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Read pinned versions from .env (CUSTOM_TAG / ERPNEXT_VERSION).
+      # Falls back to inputs.tag if a manual dispatch overrides.
+      - name: Read pinned versions
+        id: vars
+        run: |
+          set -euo pipefail
+          erpnext_version=$(grep '^ERPNEXT_VERSION=' example.kiluth.env | cut -d= -f2)
+          custom_tag=$(grep '^CUSTOM_TAG=' example.kiluth.env | cut -d= -f2)
+          override="${{ inputs.tag }}"
+          tag="${override:-$custom_tag}"
+          echo "frappe_branch=$erpnext_version" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The Containerfile reads /opt/frappe/apps.json via a BuildKit secret
+      # mount. secret-files= passes the raw file under the `apps_json` id.
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: images/layered/Containerfile
+          push: true
+          platforms: linux/amd64
+          # Ghcr.io is case-insensitive on org names but the repo path is
+          # normalised lowercase — keep tags lowercase to match.
+          tags: |
+            ghcr.io/kiluth/erpnext:latest
+            ghcr.io/kiluth/erpnext:${{ steps.vars.outputs.image_tag }}
+            ghcr.io/kiluth/erpnext:sha-${{ github.sha }}
+          build-args: |
+            FRAPPE_PATH=https://github.com/frappe/frappe
+            FRAPPE_BRANCH=${{ steps.vars.outputs.frappe_branch }}
+            FRAPPE_IMAGE_PREFIX=frappe
+          secret-files: |
+            apps_json=./apps.json
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
