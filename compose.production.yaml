@@ -103,8 +103,6 @@ services:
     networks:
       default: null
     platform: linux/amd64
-    ports:
-      - ${HTTP_PUBLISH_PORT:-8080}:8080
     pull_policy: ${PULL_POLICY:-always}
     restart: ${RESTART_POLICY:-unless-stopped}
     volumes:
