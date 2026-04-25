@@ -84,5 +84,13 @@ jobs:
             FRAPPE_IMAGE_PREFIX=frappe
           secret-files: |
             apps_json=./apps.json
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # GHA cache disabled deliberately. BuildKit's secret-mount caching
+          # ignores apps.json content changes — the same workflow re-using
+          # the cache will silently bake an old kiluth_portal commit even
+          # after we bump the SHA in apps.json. Cold builds are ~10 min on
+          # ubuntu-latest; the price of correctness over speed.
+          # Re-enable with `cache-from: type=gha` if/when we move app pinning
+          # into the Containerfile (e.g. ADD apps.json /tmp/apps.json before
+          # the install RUN, which would make BuildKit hash apps.json into
+          # the layer key).
+          no-cache: true
