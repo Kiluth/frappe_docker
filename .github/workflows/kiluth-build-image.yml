@@ -11,6 +11,13 @@ name: Kiluth / Build & push image
 # Triggers:
 #  - push to main when apps.json, the Containerfile, or this workflow change
 #  - manual dispatch (re-build on demand without commits)
+#
+# Heads up: a kiluth_portal commit alone does NOT trigger this workflow,
+# because frappe_docker doesn't watch that repo. To pick up a kiluth_portal
+# change you need to either (a) workflow_dispatch from the Actions tab, or
+# (b) bump something inside this repo so the path filter fires. With
+# `branch: main` in apps.json, the build pulls kiluth_portal HEAD at run
+# time, so the trigger source doesn't matter — only that something runs.
 
 on:
   push:
