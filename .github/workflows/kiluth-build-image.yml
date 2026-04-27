@@ -18,6 +18,9 @@ name: Kiluth / Build & push image
 # (b) bump something inside this repo so the path filter fires. With
 # `branch: main` in apps.json, the build pulls kiluth_portal HEAD at run
 # time, so the trigger source doesn't matter — only that something runs.
+#
+# Last triggered for kiluth_portal commit 59dcfd9 (force /welcome in
+# OAuth state).
 
 on:
   push:
