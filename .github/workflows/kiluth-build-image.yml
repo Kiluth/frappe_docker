@@ -1,7 +1,9 @@
 name: Kiluth / Build & push image
 
 # Builds the Kiluth ERPNext image (Frappe + ERPNext + HRMS + kiluth_portal)
-# and pushes to ghcr.io/Kiluth/erpnext. Coolify pulls this image to deploy.
+# and pushes to ghcr.io/Kiluth/erpnext. After the push succeeds, hits the
+# Coolify deploy API so the running portal.kiluth.com containers pull the
+# new :latest image — no manual click required.
 #
 # The image is built from frappe_docker's images/layered/Containerfile —
 # upstream's standard "install N extra apps on top of frappe/build" recipe.
@@ -18,6 +20,13 @@ name: Kiluth / Build & push image
 # (b) bump something inside this repo so the path filter fires. With
 # `branch: main` in apps.json, the build pulls kiluth_portal HEAD at run
 # time, so the trigger source doesn't matter — only that something runs.
+#
+# Auto-deploy: the "Trigger Coolify redeploy" step at the end of this
+# workflow POSTs to coolify.kiluth.com's deploy API for the
+# portal.kiluth.com app. It needs repo secret `COOLIFY_TOKEN` (created
+# in Coolify → Keys & Tokens → API tokens). If the secret is missing the
+# step skips silently with a warning so first-time setup doesn't fail
+# the build.
 #
 # Last triggered for kiluth_portal commit 4bad06a (Resource.status
 # recompute on every save, sharing the 4-case rule with the daily
@@ -105,3 +114,32 @@ jobs:
           # the install RUN, which would make BuildKit hash apps.json into
           # the layer key).
           no-cache: true
+
+      # Tell Coolify to pull the freshly-pushed :latest and redeploy. The
+      # app UUID is taken from the dashboard URL path. force=true ensures
+      # Coolify redeploys even though the :latest tag's content moved
+      # (it can't tell from a moving tag without the SHA digest changing
+      # in its own state). Skip silently if COOLIFY_TOKEN isn't set so a
+      # missing secret doesn't fail the build.
+      - name: Trigger Coolify redeploy
+        if: success()
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${COOLIFY_TOKEN:-}" ]; then
+            echo "::warning::COOLIFY_TOKEN secret not set — skipping auto-deploy."
+            echo "Add it in Settings → Secrets and variables → Actions."
+            exit 0
+          fi
+          response_code=$(curl -sS -o /tmp/coolify-resp.txt -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "https://coolify.kiluth.com/api/v1/deploy?uuid=lmoeh0cqhgtqsa9l7fnpbyp9&force=true")
+          echo "Coolify response code: ${response_code}"
+          cat /tmp/coolify-resp.txt
+          echo
+          if [ "${response_code}" -ge 400 ]; then
+            echo "::error::Coolify returned ${response_code}"
+            exit 1
+          fi
