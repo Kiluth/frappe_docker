@@ -86,7 +86,7 @@ jobs:
       # The Containerfile reads /opt/frappe/apps.json via a BuildKit secret
       # mount. secret-files= passes the raw file under the `apps_json` id.
       - name: Build & push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: images/layered/Containerfile
