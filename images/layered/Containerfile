@@ -31,6 +31,21 @@ USER frappe
 
 COPY --from=builder --chown=frappe:frappe /home/frappe/frappe-bench /home/frappe/frappe-bench
 
+# Stash assets at a path *outside* the volume mount so the configurator can
+# refresh the shared `sites` volume on every startup. Without this, Docker's
+# named-volume semantics keep whatever assets.json populated the volume on
+# first creation — newer images with different bundle hashes get hidden, and
+# every redeploy 404s the CSS until someone runs a manual sync.
+#
+# The `assets/` directory is mostly symlinks into apps/<name>/public, so what
+# we really care about preserving across deploys is `assets.json` (the
+# bundle-hash → path manifest). Stashing the whole directory keeps it simple
+# and lets the configurator overwrite via cp -rf below.
+USER root
+RUN cp -a /home/frappe/frappe-bench/sites/assets /opt/frappe-baked-assets && \
+  chown -R frappe:frappe /opt/frappe-baked-assets
+USER frappe
+
 WORKDIR /home/frappe/frappe-bench
 
 VOLUME [ \

@@ -22,6 +22,13 @@ services:
   configurator:
     command:
       - |
+        # Refresh sites/assets from the image-baked stash so the volume's
+        # assets.json + symlinks match the freshly-deployed apps/<name>/public/dist
+        # bundles. Without this, the volume keeps stale bundle-hash mappings
+        # from whatever image first populated it, and every redeploy 404s
+        # the CSS until someone runs a manual sync. See images/layered/
+        # Containerfile for the stash step.
+        if [ -d /opt/frappe-baked-assets ]; then cp -rf /opt/frappe-baked-assets/. sites/assets/; fi;
         ls -1 apps > sites/apps.txt; bench set-config -g db_host $$DB_HOST; bench set-config -gp db_port $$DB_PORT; bench set-config -g redis_cache "redis://$$REDIS_CACHE"; bench set-config -g redis_queue "redis://$$REDIS_QUEUE"; bench set-config -g redis_socketio "redis://$$REDIS_QUEUE"; bench set-config -gp socketio_port $$SOCKETIO_PORT; bench set-config -g chromium_path /usr/bin/chromium-headless-shell;
     depends_on:
       db:
