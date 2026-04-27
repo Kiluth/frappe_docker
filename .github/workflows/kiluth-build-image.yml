@@ -19,9 +19,9 @@ name: Kiluth / Build & push image
 # `branch: main` in apps.json, the build pulls kiluth_portal HEAD at run
 # time, so the trigger source doesn't matter — only that something runs.
 #
-# Last triggered for kiluth_portal commit 64abe3e (restore missing
-# notification module stubs after kiluth_customizations → kiluth_portal
-# rename).
+# Last triggered for kiluth_portal commit 4bad06a (Resource.status
+# recompute on every save, sharing the 4-case rule with the daily
+# scheduler).
 
 on:
   push:
