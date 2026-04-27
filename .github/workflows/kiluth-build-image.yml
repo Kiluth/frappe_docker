@@ -96,7 +96,7 @@ jobs:
           secret-files: |
             apps_json=./apps.json
           # GHA cache disabled deliberately. BuildKit's secret-mount caching
-          # ignores apps.json content changes — the same workflow re-using
+          # ignores apps.json content changes — the same workflow reusing
           # the cache will silently bake an old kiluth_portal commit even
           # after we bump the SHA in apps.json. Cold builds are ~10 min on
           # ubuntu-latest; the price of correctness over speed.
