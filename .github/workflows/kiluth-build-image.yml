@@ -28,9 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit 4bad06a (Resource.status
-# recompute on every save, sharing the 4-case rule with the daily
-# scheduler).
+# Last triggered for kiluth_portal commit ef6a336 (Archival Checklist
+# fields on Resource doctype + hosting-resource-archival runbook).
 
 on:
   push:
