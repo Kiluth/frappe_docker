@@ -38,6 +38,7 @@ on:
       - "apps.json"
       - "images/**"
       - "compose.production.yaml"
+      - "example.kiluth.env"
       - ".github/workflows/kiluth-build-image.yml"
   workflow_dispatch:
     inputs:
