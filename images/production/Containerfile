@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.14.2
+ARG PYTHON_VERSION=3.12.13
 ARG DEBIAN_BASE=bookworm
 FROM python:${PYTHON_VERSION}-slim-${DEBIAN_BASE} AS base
 
@@ -109,10 +109,10 @@ USER frappe
 
 FROM build AS builder
 
-ARG FRAPPE_BRANCH=version-16
+ARG FRAPPE_BRANCH=v16.16.0
 ARG FRAPPE_PATH=https://github.com/frappe/frappe
 ARG ERPNEXT_REPO=https://github.com/frappe/erpnext
-ARG ERPNEXT_BRANCH=version-16
+ARG ERPNEXT_BRANCH=v16.16.0
 RUN bench init \
   --frappe-branch=${FRAPPE_BRANCH} \
   --frappe-path=${FRAPPE_PATH} \
