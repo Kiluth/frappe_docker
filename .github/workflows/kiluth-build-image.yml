@@ -37,6 +37,7 @@ on:
     paths:
       - "apps.json"
       - "images/**"
+      - "compose.production.yaml"
       - ".github/workflows/kiluth-build-image.yml"
   workflow_dispatch:
     inputs:
