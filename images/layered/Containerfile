@@ -1,7 +1,14 @@
 ARG FRAPPE_BRANCH=v16.17.0
 ARG FRAPPE_IMAGE_PREFIX=frappe
+# Tag for the upstream frappe/build and frappe/base images we layer on top of.
+# Decoupled from FRAPPE_BRANCH because Frappe Cloud sometimes publishes the
+# base image (frappe/base:vX) before the build image (frappe/build:vX), so
+# pinning a brand-new Frappe release here would 404 on Docker Hub. We pull the
+# build/base images at a known-published tag and let bench init clone the
+# actual Frappe code at FRAPPE_BRANCH.
+ARG BASE_IMAGE_TAG=v16.16.0
 
-FROM ${FRAPPE_IMAGE_PREFIX}/build:${FRAPPE_BRANCH} AS builder
+FROM ${FRAPPE_IMAGE_PREFIX}/build:${BASE_IMAGE_TAG} AS builder
 
 ARG FRAPPE_BRANCH=v16.17.0
 ARG FRAPPE_PATH=https://github.com/frappe/frappe
@@ -25,7 +32,7 @@ RUN --mount=type=secret,id=apps_json,target=/opt/frappe/apps.json,uid=1000,gid=1
   echo "{}" > sites/common_site_config.json && \
   find apps -mindepth 1 -path "*/.git" | xargs rm -fr
 
-FROM ${FRAPPE_IMAGE_PREFIX}/base:${FRAPPE_BRANCH} AS backend
+FROM ${FRAPPE_IMAGE_PREFIX}/base:${BASE_IMAGE_TAG} AS backend
 
 USER frappe
 
