@@ -28,8 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit 0996f6f (multi-page financial
-# report with KPIs, charts, Theinhardt fonts, and group-alias recipient).
+# Last triggered for kiluth_portal commit 35fc534 (fix logo/fonts/blank-page
+# in PDF report — wkhtmltopdf-specific quirks from first live render).
 
 on:
   push:
