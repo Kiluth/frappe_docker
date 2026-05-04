@@ -28,8 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit d8763eb (provider-neutralize
-# Archival Checklist labels and point docs link at docs.kiluth.com).
+# Last triggered for kiluth_portal commit df0f0f2 (auto-email monthly
+# financial report on the 5th — code-based scheduler in kiluth_portal).
 
 on:
   push:
