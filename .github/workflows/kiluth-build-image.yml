@@ -14,7 +14,7 @@ name: Kiluth / Build & push image
 #  - push to main when apps.json, the Containerfile, or this workflow change
 #  - manual dispatch (re-build on demand without commits)
 #
-# Heads up: a kiluth_portal commit alone does NOT trigger this workflow,
+# Heads up: a kiluth_portal commit bcc1852lone does NOT trigger this workflow,
 # because frappe_docker doesn't watch that repo. To pick up a kiluth_portal
 # change you need to either (a) workflow_dispatch from the Actions tab, or
 # (b) bump something inside this repo so the path filter fires. With
@@ -28,7 +28,7 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit df0f0f2 (auto-email monthly
+# Last triggered for kiluth_portal commit bcc1852 (auto-email monthly
 # financial report on the 5th — code-based scheduler in kiluth_portal).
 
 on:
@@ -107,7 +107,7 @@ jobs:
             apps_json=./apps.json
           # GHA cache disabled deliberately. BuildKit's secret-mount caching
           # ignores apps.json content changes — the same workflow reusing
-          # the cache will silently bake an old kiluth_portal commit even
+          # the cache will silently bake an old kiluth_portal commit bcc1852ven
           # after we bump the SHA in apps.json. Cold builds are ~10 min on
           # ubuntu-latest; the price of correctness over speed.
           # Re-enable with `cache-from: type=gha` if/when we move app pinning
