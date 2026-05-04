@@ -28,8 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit bcc1852 (auto-email monthly
-# financial report on the 5th — code-based scheduler in kiluth_portal).
+# Last triggered for kiluth_portal commit 0996f6f (multi-page financial
+# report with KPIs, charts, Theinhardt fonts, and group-alias recipient).
 
 on:
   push:
