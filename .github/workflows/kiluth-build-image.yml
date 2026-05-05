@@ -28,8 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit 93da433 (fix broken logo + font
-# URLs in letter_head and web_page fixtures so they stop reverting on migrate).
+# Last triggered for kiluth_portal commit a54b021 (lock down Print Style
+# CSS + per-doctype default Print Format via fixture + after_migrate hook).
 
 on:
   push:
