@@ -28,8 +28,8 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit da9c5a7 (Cash & Loan chart moved to
-# its own page, separating it from the Balance Sheet table for breathing room).
+# Last triggered for kiluth_portal commit 93da433 (fix broken logo + font
+# URLs in letter_head and web_page fixtures so they stop reverting on migrate).
 
 on:
   push:
