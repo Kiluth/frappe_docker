@@ -28,8 +28,9 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit 28b3059 (idempotent monthly
-# financial report + hourly catch-up so a missed 09:00-on-5th cron self-heals).
+# Last triggered for kiluth_portal commit 6732624 (Finance Overview
+# dashboard Page at /app/finance-overview, anchored on 1-May-2026 true-up
+# snapshot + live GL deltas).
 
 on:
   push:
