@@ -28,9 +28,9 @@ name: Kiluth / Build & push image
 # step skips silently with a warning so first-time setup doesn't fail
 # the build.
 #
-# Last triggered for kiluth_portal commit 6732624 (Finance Overview
-# dashboard Page at /app/finance-overview, anchored on 1-May-2026 true-up
-# snapshot + live GL deltas).
+# Last triggered for kiluth_portal commit e79db04 (Finance Overview
+# snapshot reconciled to live P&L: revenue 295,377.50, expenses 547,662.18,
+# anchored on 30-Apr-2026 — matches the monthly emailed PDF).
 
 on:
   push:
