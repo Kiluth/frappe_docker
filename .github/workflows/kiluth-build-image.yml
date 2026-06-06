@@ -1,9 +1,9 @@
 name: Kiluth / Build & push image
 
 # Builds the Kiluth ERPNext image (Frappe + ERPNext + HRMS + kiluth_portal)
-# and pushes to ghcr.io/Kiluth/erpnext. After the push succeeds, hits the
-# Coolify deploy API so the running portal.kiluth.com containers pull the
-# new :latest image — no manual click required.
+# and pushes to ghcr.io/Kiluth/erpnext. After the push succeeds, tells the
+# portal EC2 host to pull :latest + restart its containers via AWS SSM
+# run-command — no manual click required.
 #
 # The image is built from frappe_docker's images/layered/Containerfile —
 # upstream's standard "install N extra apps on top of frappe/build" recipe.
@@ -21,12 +21,14 @@ name: Kiluth / Build & push image
 # `branch: main` in apps.json, the build pulls kiluth_portal HEAD at run
 # time, so the trigger source doesn't matter — only that something runs.
 #
-# Auto-deploy: the "Trigger Coolify redeploy" step at the end of this
-# workflow POSTs to coolify.kiluth.com's deploy API for the
-# portal.kiluth.com app. It needs repo secret `COOLIFY_TOKEN` (created
-# in Coolify → Keys & Tokens → API tokens). If the secret is missing the
-# step skips silently with a warning so first-time setup doesn't fail
-# the build.
+# Auto-deploy (Phase 4g, 2026-06-05): replaced the Coolify webhook with
+# AWS SSM run-command after Phase 4f moved portal.kiluth.com from Coolify
+# (DO droplet) to EC2. Uses OIDC to assume the `frappe-docker-gha-deploy`
+# IAM role (provisioned in kiluth-infra main.tf), then runs
+# `docker compose pull && docker compose up -d` in /opt/frappe on the
+# portal instance. Repo secret `AWS_ROLE_ARN` carries the role ARN; the
+# instance ID is hardcoded below (it's also hardcoded in the IAM policy,
+# for the same dependency-chain reason).
 #
 # Last triggered for kiluth_portal commit e79db04 (Finance Overview
 # snapshot reconciled to live P&L: revenue 295,377.50, expenses 547,662.18,
@@ -48,10 +50,20 @@ on:
         required: false
         type: string
 
-# Default permissions are read-only; this job needs write to push to GHCR.
+# Default permissions are read-only; this job needs:
+# - packages: write   → push image to GHCR
+# - id-token: write   → AssumeRoleWithWebIdentity for AWS OIDC (deploy step)
 permissions:
   contents: read
   packages: write
+  id-token: write
+
+env:
+  AWS_REGION: ap-southeast-1
+  # Portal EC2 instance ID. Hardcoded here AND in the kiluth-infra IAM
+  # policy that authorises this role to send SSM commands to it. If the
+  # instance is ever replaced, update both places.
+  PORTAL_INSTANCE_ID: i-0f43e68f46e9afbc2
 
 jobs:
   build:
@@ -117,31 +129,69 @@ jobs:
           # the layer key).
           no-cache: true
 
-      # Tell Coolify to pull the freshly-pushed :latest and redeploy. The
-      # app UUID is taken from the dashboard URL path. force=true ensures
-      # Coolify redeploys even though the :latest tag's content moved
-      # (it can't tell from a moving tag without the SHA digest changing
-      # in its own state). Skip silently if COOLIFY_TOKEN isn't set so a
-      # missing secret doesn't fail the build.
-      - name: Trigger Coolify redeploy
+      # Auth into AWS via OIDC. The role's trust policy is pinned to
+      # repo:Kiluth/frappe_docker:ref:refs/heads/main, so only main-branch
+      # workflow runs can assume it. Secret AWS_ROLE_ARN carries the ARN.
+      - name: Configure AWS credentials via OIDC
         if: success()
-        env:
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Tell the portal EC2 to pull the freshly-pushed :latest and restart.
+      # SSM run-command runs the script as the AMI's default user (root via
+      # the SSM agent), inside the instance's existing shell. /opt/frappe is
+      # where the compose file lives (provisioned by kiluth-infra Frappe
+      # module). Polls the command for up to ~3 min and fails the workflow
+      # if the command itself failed on the host.
+      - name: Deploy via SSM (docker compose pull + up)
+        if: success()
         run: |
           set -euo pipefail
-          if [ -z "${COOLIFY_TOKEN:-}" ]; then
-            echo "::warning::COOLIFY_TOKEN secret not set — skipping auto-deploy."
-            echo "Add it in Settings → Secrets and variables → Actions."
-            exit 0
-          fi
-          response_code=$(curl -sS -o /tmp/coolify-resp.txt -w "%{http_code}" \
-            -X POST \
-            -H "Authorization: Bearer ${COOLIFY_TOKEN}" \
-            "https://coolify.kiluth.com/api/v1/deploy?uuid=lmoeh0cqhgtqsa9l7fnpbyp9&force=true")
-          echo "Coolify response code: ${response_code}"
-          cat /tmp/coolify-resp.txt
-          echo
-          if [ "${response_code}" -ge 400 ]; then
-            echo "::error::Coolify returned ${response_code}"
+          cmd_id=$(aws ssm send-command \
+            --instance-ids "${PORTAL_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "GHA deploy: kiluth_portal latest (run ${{ github.run_id }})" \
+            --parameters 'commands=["set -eux","cd /opt/frappe","docker compose pull","docker compose up -d","docker image prune -f"]' \
+            --query 'Command.CommandId' \
+            --output text)
+          echo "SSM command ID: ${cmd_id}"
+
+          # Poll for completion. AWS-RunShellScript status transitions:
+          # Pending → InProgress → Success | Failed | Cancelled | TimedOut.
+          # We wait up to ~3 minutes; image pull on AMD64 is usually <60s but
+          # cold caches + container restart can push it longer.
+          for i in $(seq 1 36); do
+            sleep 5
+            status=$(aws ssm get-command-invocation \
+              --command-id "${cmd_id}" \
+              --instance-id "${PORTAL_INSTANCE_ID}" \
+              --query 'Status' \
+              --output text 2>/dev/null || echo "Pending")
+            echo "[$i/36] status=${status}"
+            case "${status}" in
+              Success) break ;;
+              Failed|Cancelled|TimedOut)
+                echo "::error::SSM command ${status}"
+                aws ssm get-command-invocation \
+                  --command-id "${cmd_id}" \
+                  --instance-id "${PORTAL_INSTANCE_ID}" \
+                  --query '{Stdout: StandardOutputContent, Stderr: StandardErrorContent}' \
+                  --output json
+                exit 1
+                ;;
+            esac
+          done
+
+          if [ "${status}" != "Success" ]; then
+            echo "::error::SSM command did not complete within timeout (last status: ${status})"
             exit 1
           fi
+
+          # Print the host's output so the build log shows what docker did.
+          aws ssm get-command-invocation \
+            --command-id "${cmd_id}" \
+            --instance-id "${PORTAL_INSTANCE_ID}" \
+            --query 'StandardOutputContent' \
+            --output text
