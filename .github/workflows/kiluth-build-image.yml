@@ -140,12 +140,25 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       # Tell the portal EC2 to pull the freshly-pushed :latest and restart.
-      # SSM run-command runs the script as the AMI's default user (root via
-      # the SSM agent), inside the instance's existing shell. /opt/frappe is
-      # where the compose file lives (provisioned by kiluth-infra Frappe
-      # module). Polls the command for up to ~3 min and fails the workflow
-      # if the command itself failed on the host.
-      - name: Deploy via SSM (docker compose pull + up)
+      # SSM run-command runs the script as root via the SSM agent, inside
+      # /opt/frappe (where the compose file lives, provisioned by
+      # kiluth-infra Frappe module).
+      #
+      # The script:
+      #   1. docker compose pull             — fetch new :latest image
+      #   2. enumerate services EXCEPT db    — db is mariadb (separate
+      #      image), and its Bitnami healthcheck reports "unhealthy" even
+      #      when functionally fine. If we include db in the `up` target,
+      #      compose waits on the healthcheck and dependent services fail
+      #      to start.
+      #   3. docker compose up -d --no-deps <services>
+      #      — recreates only the kiluth-image services, doesn't touch db,
+      #      skips the dep-healthcheck wait. db keeps running with its
+      #      pre-existing state.
+      #
+      # Polls SSM for up to ~6 min (image pull on a cold cache is the long
+      # pole — ~3-4 min for a 367MB image on the EC2's network).
+      - name: Deploy via SSM (docker compose pull + up --no-deps)
         if: success()
         run: |
           set -euo pipefail
@@ -153,23 +166,22 @@ jobs:
             --instance-ids "${PORTAL_INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --comment "GHA deploy: kiluth_portal latest (run ${{ github.run_id }})" \
-            --parameters 'commands=["set -eux","cd /opt/frappe","docker compose pull","docker compose up -d","docker image prune -f"]' \
+            --parameters 'commands=["set -eux","cd /opt/frappe","docker compose pull","SERVICES=$(docker compose config --services | grep -v -E \"^db$\" | tr \"\\n\" \" \")","echo deploying: $SERVICES","docker compose up -d --no-deps $SERVICES","docker compose ps","docker image prune -f"]' \
             --query 'Command.CommandId' \
             --output text)
           echo "SSM command ID: ${cmd_id}"
 
           # Poll for completion. AWS-RunShellScript status transitions:
           # Pending → InProgress → Success | Failed | Cancelled | TimedOut.
-          # We wait up to ~3 minutes; image pull on AMD64 is usually <60s but
-          # cold caches + container restart can push it longer.
-          for i in $(seq 1 36); do
+          # 72 × 5s = 6 min total wait window.
+          for i in $(seq 1 72); do
             sleep 5
             status=$(aws ssm get-command-invocation \
               --command-id "${cmd_id}" \
               --instance-id "${PORTAL_INSTANCE_ID}" \
               --query 'Status' \
               --output text 2>/dev/null || echo "Pending")
-            echo "[$i/36] status=${status}"
+            echo "[$i/72] status=${status}"
             case "${status}" in
               Success) break ;;
               Failed|Cancelled|TimedOut)
