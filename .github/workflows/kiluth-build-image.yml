@@ -30,9 +30,9 @@ name: Kiluth / Build & push image
 # instance ID is hardcoded below (it's also hardcoded in the IAM policy,
 # for the same dependency-chain reason).
 #
-# Last triggered for kiluth_portal commit e79db04 (Finance Overview
-# snapshot reconciled to live P&L: revenue 295,377.50, expenses 547,662.18,
-# anchored on 30-Apr-2026 — matches the monthly emailed PDF).
+# Last triggered for kiluth_portal commit 60b892f (Resource notifications:
+# added Environment to the 6 expires/expired templates so sysadmin can see
+# DEV/UAT/Staging/Production at a glance without clicking through).
 
 on:
   push:
