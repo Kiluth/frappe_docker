@@ -30,9 +30,9 @@ name: Kiluth / Build & push image
 # instance ID is hardcoded below (it's also hardcoded in the IAM policy,
 # for the same dependency-chain reason).
 #
-# Last triggered for kiluth_portal commit 60b892f (Resource notifications:
-# added Environment to the 6 expires/expired templates so sysadmin can see
-# DEV/UAT/Staging/Production at a glance without clicking through).
+# Last triggered for kiluth_portal commit 5496cde (Resource Expired
+# template now uses the same table format as Expires-in-N — was the only
+# Resource notification left with minimal inline prose, fixed for parity).
 
 on:
   push:
