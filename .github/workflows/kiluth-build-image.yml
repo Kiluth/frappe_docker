@@ -72,7 +72,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Read pinned versions from .env (CUSTOM_TAG / ERPNEXT_VERSION).
       # Falls back to inputs.tag if a manual dispatch overrides.
