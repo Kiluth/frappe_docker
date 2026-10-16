@@ -30,6 +30,16 @@ name: Kiluth / Build & push image
 # instance ID is hardcoded below (it's also hardcoded in the IAM policy,
 # for the same dependency-chain reason).
 #
+# Deploy hours (2026-10-17, docs.kiluth.com/technology/go-live-and-incidents):
+# a deploy takes the Portal offline for about a minute, so it only runs
+# outside office hours (weekdays before 09:00 or after 18:00 Bangkok, or at
+# weekends). The build always runs at once; in office hours the deploy job
+# skips, and the 18:05 scheduled run switches the new image on. An urgent fix
+# deploys at once: tick "urgent" on a manual run, or put [urgent] in the
+# kiluth_portal commit message (its trigger workflow passes it through). The
+# scheduled run is deploy-only; if :latest hasn't changed, compose recreates
+# nothing, so it costs no downtime.
+#
 # Last triggered for kiluth_portal commit 5496cde (Resource Expired
 # template now uses the same table format as Expires-in-N — was the only
 # Resource notification left with minimal inline prose, fixed for parity).
@@ -49,6 +59,14 @@ on:
         description: "Override tag (default: ERPNEXT_VERSION from .env)"
         required: false
         type: string
+      urgent:
+        description: "Urgent fix: go live now, even in office hours"
+        required: false
+        type: boolean
+        default: false
+  # 18:05 Bangkok, Mon–Fri: switch on anything built during office hours.
+  schedule:
+    - cron: "5 11 * * 1-5"
 
 # Default permissions are read-only; this job needs:
 # - packages: write   → push image to GHCR
@@ -68,6 +86,7 @@ env:
 jobs:
   build:
     name: Build & push to ghcr.io
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
 
     steps:
@@ -129,11 +148,37 @@ jobs:
           # the layer key).
           no-cache: true
 
+  deploy:
+    name: Deploy to portal.kiluth.com
+    needs: build
+    # Runs after a successful build, or on its own for the 18:05 schedule.
+    if: always() && (needs.build.result == 'success' || github.event_name == 'schedule')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check deploy hours
+        id: hours
+        env:
+          URGENT: ${{ inputs.urgent || false }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          day=$(TZ=Asia/Bangkok date +%u)    # 1 = Monday … 7 = Sunday
+          hour=$(TZ=Asia/Bangkok date +%H)
+          office=false
+          if [ "$day" -le 5 ] && [ "$((10#$hour))" -ge 9 ] && [ "$((10#$hour))" -lt 18 ]; then office=true; fi
+          if [ "$EVENT" = "schedule" ] || [ "$URGENT" = "true" ] || [ "$office" = "false" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+            echo "Deploying now (event=$EVENT urgent=$URGENT office_hours=$office)"
+          else
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Office hours in Bangkok: image built, deploy waits for the 18:05 run. Mark urgent to go live now."
+          fi
+
       # Auth into AWS via OIDC. The role's trust policy is pinned to
       # repo:Kiluth/frappe_docker:ref:refs/heads/main, so only main-branch
       # workflow runs can assume it. Secret AWS_ROLE_ARN carries the ARN.
       - name: Configure AWS credentials via OIDC
-        if: success()
+        if: steps.hours.outputs.deploy == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
@@ -159,7 +204,7 @@ jobs:
       # Polls SSM for up to ~6 min (image pull on a cold cache is the long
       # pole — ~3-4 min for a 367MB image on the EC2's network).
       - name: Deploy via SSM (docker compose pull + up --no-deps)
-        if: success()
+        if: steps.hours.outputs.deploy == 'true'
         run: |
           set -euo pipefail
           cmd_id=$(aws ssm send-command \
